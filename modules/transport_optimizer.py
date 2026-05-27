@@ -11,11 +11,14 @@ class TransportOptimizer:
     
     @staticmethod
     def solve_transport_problem(cost_matrix, supply, demand):
+        """Решение транспортной задачи методом линейного программирования (устаревший метод)"""
+        return TransportOptimizer.solve_transport_problem_with_method(cost_matrix, supply, demand, 'highs')
+    
+    @staticmethod
+    def solve_transport_problem_with_method(cost_matrix, supply, demand, method='highs'):
         """
-        Решение транспортной задачи методом линейного программирования
-        cost_matrix: матрица затрат (автобусы x маршруты)
-        supply: запасы автобусов (количество рейсов)
-        demand: потребность в рейсах на маршрутах
+        Решение транспортной задачи с указанным методом оптимизации
+        method: 'highs', 'highs-ds', 'highs-ipm', 'simplex', 'revised simplex', 'interior-point'
         """
         n_supply = len(supply)
         n_demand = len(demand)
@@ -67,7 +70,12 @@ class TransportOptimizer:
         b_eq = np.array(b_eq_supply + b_eq_demand)
         
         bounds = [(0, None) for _ in range(n_vars)]
-        result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+        
+        # Решение с указанным методом
+        try:
+            result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method=method)
+        except Exception as e:
+            return {'success': False, 'message': str(e)}
         
         if result.success:
             solution = result.x.reshape(n_supply, n_demand)
@@ -79,4 +87,4 @@ class TransportOptimizer:
                 'n_demand': n_demand
             }
         else:
-            return {'success': False, 'message': 'Решение не найдено'}
+            return {'success': False, 'message': result.message}

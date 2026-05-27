@@ -59,7 +59,7 @@ def render_quality_tab():
         
         html.Div([
             html.Div([
-                html.H4("📡 Радиальная диаграмма", style={'textAlign': 'center'}),
+                html.H4("📡 Сравнение нормированных показателей", style={'textAlign': 'center'}),
                 dcc.Graph(id="radar-chart")
             ], className="six columns", style={'padding': '10px'}),
             
@@ -160,36 +160,56 @@ def render_forecast_tab(df_bus):
 
 
 def render_optimization_tab():
-    """Вкладка оптимизации"""
+    """Вкладка оптимизации для автобусного парка (вариант №3 из ПЗ №7)"""
+    
+    # Данные для транспортной задачи (вариант №3: Автобусный парк)
+    # Гаражи: G1, G2, G3
+    # Маршруты: M1, M2, M3, M4, M5
+    COST_MATRIX = [
+        [500, 550, 600, 650, 700],  # G1
+        [580, 520, 570, 620, 670],  # G2
+        [650, 600, 550, 600, 650]   # G3
+    ]
+    SUPPLY = [30, 25, 20]           # Запасы автобусов в гаражах
+    DEMAND = [15, 12, 18, 14, 16]   # Потребность в автобусах на маршрутах
+    GARAGE_NAMES = ['Гараж G1', 'Гараж G2', 'Гараж G3']
+    ROUTE_NAMES = ['Маршрут M1', 'Маршрут M2', 'Маршрут M3', 'Маршрут M4', 'Маршрут M5']
+    
     return html.Div([
         html.Div([
             html.Div([
                 html.H4("Параметры транспортной задачи", style={'color': '#2c3e50'}),
-                html.H5("Матрица затрат (руб./рейс)"),
+                html.P("Распределение автобусов из гаражей по маршрутам", 
+                       style={'color': '#7f8c8d', 'marginBottom': '15px'}),
+                
+                html.H5("Матрица затрат (руб./автобус в день)", style={'marginTop': '10px'}),
                 dash_table.DataTable(
                     id="cost-matrix-table",
-                    columns=[{"name": f"Маршрут {i+1}", "id": f"col_{i}"} for i in range(4)],
-                    data=[{f"col_{j}": COST_MATRIX[i][j] for j in range(4)} 
-                          for i in range(5)],
+                    columns=[{"name": r, "id": f"col_{i}"} for i, r in enumerate(ROUTE_NAMES)],
+                    data=[{f"col_{j}": COST_MATRIX[i][j] for j in range(5)} 
+                          for i in range(3)],
                     editable=True,
                     style_table={'overflowX': 'auto'},
-                    style_cell={'textAlign': 'center', 'minWidth': '80px'}
+                    style_cell={'textAlign': 'center', 'minWidth': '100px'},
+                    style_header={'backgroundColor': '#3498db', 'color': 'white'}
                 ),
                 
-                html.H5("Запасы автобусов (рейсов)", style={'marginTop': '20px'}),
+                html.H5("Запасы автобусов в гаражах (ед.)", style={'marginTop': '20px'}),
                 html.Div([
-                    html.Div([html.Label(f"{BUS_NAMES[i]}:"), 
-                             dcc.Input(id=f"supply_{i}", type="number", value=SUPPLY[i],
-                                      style={'width': '80px', 'marginLeft': '10px'})])
-                    for i in range(5)
+                    html.Div([
+                        html.Label(f"{GARAGE_NAMES[i]}:"), 
+                        dcc.Input(id=f"supply_{i}", type="number", value=SUPPLY[i],
+                                 style={'width': '100px', 'marginLeft': '10px', 'marginBottom': '10px'})
+                    ]) for i in range(3)
                 ]),
                 
-                html.H5("Потребность маршрутов (рейсов)", style={'marginTop': '20px'}),
+                html.H5("Потребность маршрутов в автобусах (ед.)", style={'marginTop': '20px'}),
                 html.Div([
-                    html.Div([html.Label(f"{ROUTE_NAMES[i]}:"), 
-                             dcc.Input(id=f"demand_{i}", type="number", value=DEMAND[i],
-                                      style={'width': '80px', 'marginLeft': '10px'})])
-                    for i in range(4)
+                    html.Div([
+                        html.Label(f"{ROUTE_NAMES[i]}:"), 
+                        dcc.Input(id=f"demand_{i}", type="number", value=DEMAND[i],
+                                 style={'width': '100px', 'marginLeft': '10px', 'marginBottom': '10px'})
+                    ]) for i in range(5)
                 ]),
                 
                 html.Button("🚀 Оптимизировать распределение", id="btn-optimize",
@@ -203,4 +223,10 @@ def render_optimization_tab():
                 html.Div(id="optimization-results"),
             ], className="six columns", style=CARD_STYLE),
         ], className="row"),
+        
+        # Тепловая карта (добавляем под результатами)
+        html.Div([
+            html.H4("Тепловая карта матрицы затрат", style={'textAlign': 'center', 'marginTop': '20px'}),
+            dcc.Graph(id="cost-heatmap")
+        ], style=CARD_STYLE),
     ])
