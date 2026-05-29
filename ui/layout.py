@@ -72,28 +72,15 @@ def render_quality_tab():
 
 
 def render_forecast_tab(df_bus):
-    """Вкладка прогнозирования"""
+    """Вкладка прогнозирования (автоматический выбор модели)"""
     return html.Div([
         html.Div([
             html.Div([
-                html.H4("Настройки модели", style={'color': '#2c3e50'}),
-                dcc.RadioItems(
-                    id="model-type",
-                    options=[
-                        {"label": "Линейная регрессия", "value": "linear"},
-                        {"label": "Полиномиальная регрессия (степень 2)", "value": "polynomial"}
-                    ],
-                    value="linear",
-                    style={'marginBottom': '20px'}
-                ),
+                html.H4("Информация о модели", style={'color': '#2c3e50'}),
+                html.Div(id="model-info", style={'marginBottom': '20px', 'padding': '15px',
+                                                  'backgroundColor': '#d5f5e3', 'borderRadius': '5px'}),
                 
-                html.Button("🔄 Обучить модель", id="btn-train-model",
-                           style=BUTTON_STYLES['primary']),
-                
-                html.Div(id="model-metrics", style={'marginTop': '20px', 'padding': '15px',
-                                                    'backgroundColor': '#d5f5e3', 'borderRadius': '5px'}),
-                
-                html.H4("Ручной прогноз выручки", style={'marginTop': '30px', 'color': '#2c3e50'}),
+                html.H4("Ручной прогноз выручки", style={'marginTop': '20px', 'color': '#2c3e50'}),
                 html.Div([
                     html.Label("💰 Цена топлива (руб./л):"),
                     dcc.Input(id="pred-fuel", type="number", value=50, step=0.5,

@@ -10,11 +10,15 @@ import plotly.graph_objs as go
 import plotly.express as px
 
 from modules import QualityEvaluator, TransportOptimizer
-from config import SAMPLE_BUSES, BUS_NAMES, ROUTE_NAMES
+from config import SAMPLE_BUSES
 
 
 def register_callbacks(app, forecast_model):
     """Регистрация всех callbacks"""
+    
+    # ============================================================
+    # CALLBACK ДЛЯ ОЦЕНКИ КАЧЕСТВА
+    # ============================================================
     
     @app.callback(
         [Output("radar-chart", "figure"),
@@ -41,12 +45,8 @@ def register_callbacks(app, forecast_model):
         
         results.sort(key=lambda x: x["quality"], reverse=True)
         
-        # ============================================================
-        # РАДИАЛЬНАЯ ДИАГРАММА (ВСЕ ОБРАЗЦЫ)
-        # ============================================================
+        # Радиальная диаграмма (все образцы)
         radar_fig = go.Figure()
-        
-        # Цвета для разных образцов
         colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
         
         for idx, result in enumerate(results):
@@ -77,9 +77,7 @@ def register_callbacks(app, forecast_model):
             legend=dict(x=1.1, y=1.0)
         )
         
-        # ============================================================
-        # СТОЛБЧАТАЯ ДИАГРАММА
-        # ============================================================
+        # Столбчатая диаграмма
         bar_fig = go.Figure()
         bar_fig.add_trace(go.Bar(
             x=[r["name"] for r in results],
@@ -105,63 +103,63 @@ def register_callbacks(app, forecast_model):
         
         return radar_fig, bar_fig, results_text
     
+    # ============================================================
+    # CALLBACK ДЛЯ ИНФОРМАЦИИ О МОДЕЛИ (ПОЛИНОМИАЛЬНАЯ)
+    # ============================================================
+    
     @app.callback(
-        [Output("model-metrics", "children"),
-         Output("prediction-result", "children")],
-        [Input("btn-train-model", "n_clicks"),
-         Input("btn-predict", "n_clicks")],
-        [State("model-type", "value"),
-         State("pred-fuel", "value"),
+        Output("model-info", "children"),
+        Input("btn-predict", "n_clicks"),
+        prevent_initial_call=False
+    )
+    def display_model_info(n_clicks):
+        """Отображение информации о полиномиальной модели"""
+        return html.Div([
+            html.H5("📈 Полиномиальная регрессия (степень 2)", style={'marginBottom': '10px', 'color': '#2980b9'}),
+            html.P("🔍 Модель учитывает нелинейные зависимости и взаимодействия признаков", 
+                   style={'fontSize': '14px'}),
+            html.P(f"📊 R² (качество модели): **{forecast_model.r2:.4f}**", style={'marginBottom': '5px'}),
+            html.P(f"📉 MAE (средняя ошибка): **{forecast_model.mae:.2f}** тыс. руб.", style={'marginBottom': '5px'}),
+            html.P(f"🔧 Степень полинома: **{forecast_model.degree}**", style={'marginBottom': '5px'}),
+            html.P("📐 Модель учитывает: линейные эффекты, квадратичные эффекты и взаимодействия признаков",
+                   style={'fontSize': '12px', 'color': '#7f8c8d', 'marginTop': '10px'})
+        ])
+    
+    # ============================================================
+    # CALLBACK ДЛЯ ПРОГНОЗА
+    # ============================================================
+    
+    @app.callback(
+        Output("prediction-result", "children"),
+        Input("btn-predict", "n_clicks"),
+        [State("pred-fuel", "value"),
          State("pred-route", "value"),
          State("pred-holiday", "value"),
          State("pred-buses", "value"),
          State("pred-weather", "value")]
     )
-    def update_forecast(train_clicks, pred_clicks, model_type, fuel, route, holiday, buses, weather):
-        ctx = dash.callback_context
-        trigger_id = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
+    def update_prediction(n_clicks, fuel, route, holiday, buses, weather):
+        """Получение прогноза"""
+        if not n_clicks:
+            return html.Div("Введите значения и нажмите 'Получить прогноз'")
         
-        if "btn-train-model" in trigger_id:
-            if model_type == "linear":
-                forecast_model.train_linear()
-                model_name = "Линейная регрессия"
-            else:
-                forecast_model.train_polynomial(degree=2)
-                model_name = "Полиномиальная регрессия"
-            
-            metrics = html.Div([
-                html.H5(f"📈 Модель: {model_name}"),
-                html.P(f"R² (качество модели): {forecast_model.r2:.4f}"),
-                html.P(f"MAE (средняя ошибка): {forecast_model.mae:.2f} тыс. руб."),
-                html.P("✅ Модель успешно обучена")
+        try:
+            prediction = forecast_model.predict({
+                'fuel_price': fuel or 50,
+                'avg_route_length': route or 25,
+                'is_holiday': holiday or 0,
+                'bus_count': buses or 30,
+                'weather_condition': weather or 1
+            })
+            return html.Div([
+                f"💰 Прогноз дневной выручки: {prediction:.0f} тыс. руб."
             ])
-            
-            if "btn-predict" not in trigger_id:
-                return metrics, html.Div()
-        
-        if "btn-predict" in trigger_id:
-            try:
-                prediction = forecast_model.predict({
-                    'fuel_price': fuel or 50,
-                    'avg_route_length': route or 25,
-                    'is_holiday': holiday or 0,
-                    'bus_count': buses or 30,
-                    'weather_condition': weather or 1
-                })
-                pred_result = html.Div([
-                    f"💰 Прогноз дневной выручки: {prediction:.0f} тыс. руб."
-                ])
-            except Exception as e:
-                pred_result = html.Div(f"Ошибка: {str(e)}", style={'color': 'red'})
-            
-            metrics = html.Div([
-                html.H5("📈 Модель готова"),
-                html.P(f"R²: {forecast_model.r2:.4f}"),
-                html.P(f"MAE: {forecast_model.mae:.2f} тыс. руб.")
-            ])
-            return metrics, pred_result
-        
-        return html.Div("Нажмите 'Обучить модель'"), html.Div()
+        except Exception as e:
+            return html.Div(f"Ошибка: {str(e)}", style={'color': 'red'})
+    
+    # ============================================================
+    # CALLBACK ДЛЯ ГРАФИКА ЗАВИСИМОСТИ
+    # ============================================================
     
     @app.callback(
         Output("dependence-graph", "figure"),
@@ -212,6 +210,10 @@ def register_callbacks(app, forecast_model):
         
         return fig
     
+    # ============================================================
+    # CALLBACK ДЛЯ ОПТИМИЗАЦИИ
+    # ============================================================
+    
     @app.callback(
         Output("optimization-results", "children"),
         Input("btn-optimize", "n_clicks"),
@@ -220,11 +222,7 @@ def register_callbacks(app, forecast_model):
         [State("cost-matrix-table", "data")]
     )
     def solve_optimization(n_clicks, s0, s1, s2, d0, d1, d2, d3, d4, cost_data):
-        """
-        Решение транспортной задачи для автобусного парка
-        Вариант №3: 3 гаража (поставщики) и 5 маршрутов (потребители)
-        Сравнение различных методов оптимизации по времени выполнения
-        """
+        """Решение транспортной задачи"""
         import time
         
         if not n_clicks:
@@ -260,9 +258,7 @@ def register_callbacks(app, forecast_model):
                 html.P(f"⚠️ Задача НЕ сбалансирована:", style={'color': '#e67e22', 'fontWeight': 'bold'}),
                 html.P(f"   Сумма запасов: {total_supply} автобусов"),
                 html.P(f"   Сумма потребностей: {total_demand} автобусов"),
-                html.P(f"   Разница: {abs(total_supply - total_demand)} автобусов"),
-                html.P("   Будет добавлен фиктивный поставщик/потребитель с нулевыми затратами.", 
-                       style={'fontStyle': 'italic'})
+                html.P("   Будет добавлен фиктивный поставщик/потребитель с нулевыми затратами.")
             ])
         else:
             balance_msg = html.Div([
@@ -270,11 +266,7 @@ def register_callbacks(app, forecast_model):
                        style={'color': '#27ae60', 'fontWeight': 'bold'})
             ])
         
-        # ============================================================
-        # СРАВНЕНИЕ РАЗЛИЧНЫХ МЕТОДОВ ОПТИМИЗАЦИИ
-        # ============================================================
-        
-        # Список методов для тестирования (не менее 3-х)
+        # Сравнение методов оптимизации
         methods_to_test = ['highs', 'highs-ds', 'highs-ipm']
         method_names = {
             'highs': 'HiGHS (симплекс)',
@@ -283,34 +275,37 @@ def register_callbacks(app, forecast_model):
         }
         
         results_by_method = []
-        
         for method in methods_to_test:
             start_time = time.time()
             result = TransportOptimizer.solve_transport_problem_with_method(cost_matrix, supply, demand, method)
             end_time = time.time()
             elapsed_time = (end_time - start_time) * 1000
-            
             results_by_method.append({
-                'method': method,
                 'method_name': method_names.get(method, method),
                 'success': result['success'],
                 'total_cost': result.get('total_cost', None),
-                'time_ms': elapsed_time,
-                'message': result.get('message', '')
+                'time_ms': elapsed_time
             })
         
-        # Выбираем лучший результат (по минимальной стоимости)
         successful_results = [r for r in results_by_method if r['success']]
         
         if not successful_results:
-            return html.Div(f"❌ Ошибка: ни один метод не нашёл решение", 
+            return html.Div("❌ Ошибка: ни один метод не нашёл решение", 
                            style={'color': 'red', 'padding': '15px', 'backgroundColor': '#fee', 'borderRadius': '5px'})
         
-        # Используем результат первого успешного метода для отображения распределения
+        # Выбираем лучший результат
         best_result = min(successful_results, key=lambda x: x['total_cost'])
         
-        # Повторно решаем задачу лучшим методом для получения полного решения
-        final_result = TransportOptimizer.solve_transport_problem_with_method(cost_matrix, supply, demand, best_result['method'])
+        # Находим метод по имени
+        selected_method = None
+        for method in methods_to_test:
+            if method_names[method] == best_result['method_name']:
+                selected_method = method
+                break
+        
+        final_result = TransportOptimizer.solve_transport_problem_with_method(
+            cost_matrix, supply, demand, selected_method
+        )
         solution = final_result['solution']
         total_cost = final_result['total_cost']
         n_supply = final_result['n_supply']
@@ -318,8 +313,7 @@ def register_callbacks(app, forecast_model):
         
         # Таблица сравнения методов
         comparison_table = html.Div([
-            html.H5("⏱️ Сравнение времени выполнения методов оптимизации", 
-                    style={'marginTop': '15px', 'color': '#2c3e50'}),
+            html.H5("⏱️ Сравнение методов оптимизации", style={'marginTop': '15px'}),
             dash_table.DataTable(
                 columns=[
                     {"name": "Метод", "id": "method"},
@@ -338,17 +332,8 @@ def register_callbacks(app, forecast_model):
                 ],
                 style_table={'overflowX': 'auto'},
                 style_cell={'textAlign': 'center'},
-                style_header={'backgroundColor': '#34495e', 'color': 'white'},
-                style_data_conditional=[
-                    {
-                        'if': {'filter_query': '{status} = "✅ Успешно"'},
-                        'backgroundColor': '#d5f5e3'
-                    }
-                ]
-            ),
-            html.P("📊 Вывод: метод '{}' показал наилучший результат (затраты: {:,} руб., время: {:.3f} мс)".format(
-                best_result['method_name'], best_result['total_cost'], best_result['time_ms']
-            ), style={'marginTop': '10px', 'fontStyle': 'italic', 'color': '#2980b9'})
+                style_header={'backgroundColor': '#34495e', 'color': 'white'}
+            )
         ])
         
         # Названия (с учётом возможного добавления фиктивных)
@@ -365,73 +350,25 @@ def register_callbacks(app, forecast_model):
         for i in range(n_supply):
             row = {"Гараж": garage_names[i]}
             for j in range(n_demand):
-                value = solution[i][j]
-                row[route_names[j]] = f"{value:.0f}"
+                row[route_names[j]] = f"{solution[i][j]:.0f}"
             table_data.append(row)
         
-        # Создание таблицы с подсветкой ненулевых значений
         table = dash_table.DataTable(
             columns=[{"name": "Гараж / Маршрут", "id": "Гараж"}] + 
                     [{"name": r, "id": r} for r in route_names],
             data=table_data,
             style_table={'overflowX': 'auto'},
             style_cell={'textAlign': 'center', 'minWidth': '80px'},
-            style_header={'backgroundColor': '#3498db', 'color': 'white', 'fontWeight': 'bold'},
-            style_data_conditional=[
-                {
-                    'if': {'filter_query': f'{{{r}}} > 0'},
-                    'backgroundColor': '#d5f5e3',
-                    'fontWeight': 'bold'
-                } for r in route_names
-            ]
+            style_header={'backgroundColor': '#3498db', 'color': 'white', 'fontWeight': 'bold'}
         )
-        
-        # Расчёт загрузки гаражей
-        garage_load = []
-        for i in range(min(3, n_supply)):
-            load = sum(solution[i][j] for j in range(min(5, n_demand)))
-            garage_load.append(load)
-        
-        # Расчёт удовлетворения маршрутов
-        route_fulfillment = []
-        for j in range(min(5, n_demand)):
-            received = sum(solution[i][j] for i in range(min(3, n_supply)))
-            route_fulfillment.append(received)
-        
-        # Статистика
-        stats = html.Div([
-            html.H5("📊 Статистика распределения", style={'marginTop': '15px'}),
-            html.Div([
-                html.Div([
-                    html.H6("Загрузка гаражей:", style={'marginBottom': '5px'}),
-                    html.Ul([
-                        html.Li(f"{garage_names[i]}: {int(garage_load[i])} автобусов из {int(supply[i])} "
-                               f"({garage_load[i]/supply[i]*100:.1f}%)") 
-                        for i in range(len(garage_load))
-                    ])
-                ], style={'display': 'inline-block', 'width': '45%', 'verticalAlign': 'top'}),
-                html.Div([
-                    html.H6("Удовлетворение маршрутов:", style={'marginBottom': '5px'}),
-                    html.Ul([
-                        html.Li(f"{route_names[j]}: {int(route_fulfillment[j])} автобусов из {int(demand[j])} "
-                               f"({route_fulfillment[j]/demand[j]*100:.1f}%)")
-                        for j in range(len(route_fulfillment))
-                    ])
-                ], style={'display': 'inline-block', 'width': '45%', 'verticalAlign': 'top'})
-            ])
-        ])
         
         return html.Div([
             html.H5(f"💰 Минимальные затраты: {total_cost:,.0f} руб./день", 
                    style={'color': '#27ae60', 'fontSize': '18px'}),
             balance_msg,
             comparison_table,
-            html.H6("Оптимальное распределение автобусов по маршрутам:", 
-                   style={'marginTop': '15px'}),
-            table,
-            stats,
-            html.P("📌 Зелёным цветом выделены ненулевые поставки автобусов.",
-                   style={'fontSize': '12px', 'color': '#7f8c8d', 'marginTop': '10px'})
+            html.H6("Оптимальное распределение автобусов:", style={'marginTop': '15px'}),
+            table
         ])
     
     # ============================================================
@@ -444,9 +381,7 @@ def register_callbacks(app, forecast_model):
         [State("cost-matrix-table", "data")]
     )
     def update_heatmap(n_clicks, cost_data):
-        """Построение тепловой карты матрицы затрат"""
-        
-        # Формирование матрицы затрат из таблицы
+        """Тепловая карта матрицы затрат"""
         if cost_data and len(cost_data) > 0:
             try:
                 cost_matrix = np.array([[row[f"col_{j}"] for j in range(5)] for row in cost_data])
@@ -463,12 +398,11 @@ def register_callbacks(app, forecast_model):
                 [650, 600, 550, 600, 650]
             ])
         
-        # Создание тепловой карты
         fig = px.imshow(
             cost_matrix,
             text_auto=True,
             aspect="auto",
-            color_continuous_scale='RdYlGn_r',  # Красный-жёлтый-зелёный (обратный, чтобы меньше = зеленее)
+            color_continuous_scale='RdYlGn_r',
             labels=dict(x="Маршрут", y="Гараж", color="Затраты (руб.)"),
             x=['M1', 'M2', 'M3', 'M4', 'M5'],
             y=['Гараж G1', 'Гараж G2', 'Гараж G3']
@@ -481,16 +415,5 @@ def register_callbacks(app, forecast_model):
             width=600,
             height=400
         )
-        
-        # Добавление значений в ячейки
-        for i in range(len(cost_matrix)):
-            for j in range(len(cost_matrix[0])):
-                fig.add_annotation(
-                    x=j,
-                    y=i,
-                    text=str(cost_matrix[i][j]),
-                    showarrow=False,
-                    font=dict(color="black" if cost_matrix[i][j] < 600 else "white")
-                )
         
         return fig
