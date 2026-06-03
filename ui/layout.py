@@ -32,7 +32,7 @@ def get_layout():
 
 
 def render_quality_tab():
-    """Вкладка оценки качества"""
+    """Вкладка оценки качества с возможностью добавления образцов"""
     return html.Div([
         html.Div([
             html.Div([
@@ -47,6 +47,63 @@ def render_quality_tab():
                     value="Междугородние автобусы",
                     style={'marginBottom': '20px'}
                 ),
+                
+                # ============================================================
+                # БЛОК ДОБАВЛЕНИЯ ОБРАЗЦА ЧЕРЕЗ CSV
+                # ============================================================
+                html.H4("Загрузка из CSV-файла", style={'marginTop': '20px', 'color': '#2c3e50'}),
+                dcc.Upload(
+                    id="upload-quality-data",
+                    children=html.Div([
+                        "📁 Перетащите CSV-файл или ",
+                        html.A("выберите файл")
+                    ]),
+                    style={
+                        'width': '100%', 'height': '60px', 'lineHeight': '60px',
+                        'borderWidth': '1px', 'borderStyle': 'dashed',
+                        'borderRadius': '5px', 'textAlign': 'center', 'margin': '10px 0'
+                    },
+                    multiple=False
+                ),
+                
+                # ============================================================
+                # БЛОК РУЧНОГО ДОБАВЛЕНИЯ ОБРАЗЦА
+                # ============================================================
+                html.H4("Ручное добавление образца", style={'marginTop': '20px', 'color': '#2c3e50'}),
+                html.Div([
+                    html.Label("Название модели:"),
+                    dcc.Input(id="new-bus-name", type="text", placeholder="Введите название модели",
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    
+                    html.Label("Макс. скорость (км/ч):"),
+                    dcc.Input(id="new-bus-speed", type="number", placeholder="120",
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    
+                    html.Label("Вместимость (чел):"),
+                    dcc.Input(id="new-bus-capacity", type="number", placeholder="55",
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    
+                    html.Label("Ресурс (тыс. км):"),
+                    dcc.Input(id="new-bus-resource", type="number", placeholder="800",
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    
+                    html.Label("Комфорт (баллы):"),
+                    dcc.Input(id="new-bus-comfort", type="number", placeholder="10", step=0.5,
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    
+                    html.Label("Расход топлива (л/100км):"),
+                    dcc.Input(id="new-bus-fuel", type="number", placeholder="22",
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    
+                    html.Button("➕ Добавить образец", id="btn-add-bus",
+                               style={'margin': '10px 0', 'padding': '10px 20px',
+                                      'backgroundColor': '#9b59b6', 'color': 'white', 'border': 'none',
+                                      'borderRadius': '5px', 'cursor': 'pointer'}),
+                    
+                    html.Div(id="add-bus-message", style={'marginTop': '10px', 'color': 'green'})
+                ], style={'padding': '15px', 'backgroundColor': '#f9e79f', 'borderRadius': '10px'}),
+                
+                html.Hr(),
                 html.Button("📊 Рассчитать технический уровень", id="btn-calc-quality",
                            style=BUTTON_STYLES['success']),
             ], className="six columns", style=CARD_STYLE),
@@ -69,7 +126,6 @@ def render_quality_tab():
             ], className="six columns", style={'padding': '10px'}),
         ], className="row"),
     ])
-
 
 def render_forecast_tab(df_bus):
     """Вкладка прогнозирования (автоматический выбор модели)"""

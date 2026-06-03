@@ -2,10 +2,14 @@
 Обработчики событий (callbacks)
 """
 
+import base64
+import io
+import time
+import pandas as pd
+import numpy as np
 import dash
 from dash import html, dash_table, Input, Output, State
 from dash.dependencies import Input, Output, State
-import numpy as np
 import plotly.graph_objs as go
 import plotly.express as px
 
@@ -13,30 +17,113 @@ from modules import QualityEvaluator, TransportOptimizer
 from config import SAMPLE_BUSES
 
 
+# Глобальная переменная для хранения пользовательских образцов
+user_buses = {
+    "Междугородние автобусы": [],
+    "Автобусы малой вместимости": [],
+    "Спецтранспорт (эвакуаторы)": []
+}
+
+
 def register_callbacks(app, forecast_model):
     """Регистрация всех callbacks"""
     
     # ============================================================
-    # CALLBACK ДЛЯ ОЦЕНКИ КАЧЕСТВА
+    # CALLBACK ДЛЯ ДОБАВЛЕНИЯ ОБРАЗЦА (РУЧНОЙ ВВОД)
+    # ============================================================
+    
+    @app.callback(
+        Output("add-bus-message", "children"),
+        Input("btn-add-bus", "n_clicks"),
+        [State("bus-type-select", "value"),
+         State("new-bus-name", "value"),
+         State("new-bus-speed", "value"),
+         State("new-bus-capacity", "value"),
+         State("new-bus-resource", "value"),
+         State("new-bus-comfort", "value"),
+         State("new-bus-fuel", "value")]
+    )
+    def add_bus_manual(n_clicks, bus_type, name, speed, capacity, resource, comfort, fuel):
+        """Ручное добавление нового образца"""
+        if not n_clicks:
+            return ""
+        
+        # Проверка обязательных полей
+        if not name:
+            return html.Div("❌ Ошибка: введите название модели", style={'color': 'red'})
+        
+        if not all([speed, capacity, resource, comfort, fuel]):
+            return html.Div("❌ Ошибка: заполните все показатели", style={'color': 'red'})
+        
+        # Создаём новый образец
+        new_bus = {
+            "name": name,
+            "max_speed": float(speed),
+            "capacity": float(capacity),
+            "resource": float(resource),
+            "comfort": float(comfort),
+            "fuel_consumption": float(fuel)
+        }
+        
+        # Добавляем в соответствующую категорию
+        user_buses[bus_type].append(new_bus)
+        
+        return html.Div(f"✅ Образец '{name}' успешно добавлен! Нажмите 'Рассчитать' для обновления графиков.", 
+                       style={'color': 'green', 'marginTop': '10px'})
+    
+    # ============================================================
+    # CALLBACK ДЛЯ ОЦЕНКИ КАЧЕСТВА (С УЧЁТОМ ДОБАВЛЕННЫХ ОБРАЗЦОВ)
     # ============================================================
     
     @app.callback(
         [Output("radar-chart", "figure"),
          Output("bar-chart", "figure"),
          Output("quality-results-text", "children")],
-        [Input("btn-calc-quality", "n_clicks")],
-        [State("bus-type-select", "value")]
+        [Input("btn-calc-quality", "n_clicks"),
+         Input("upload-quality-data", "contents")],
+        [State("bus-type-select", "value"),
+         State("upload-quality-data", "filename")]
     )
-    def update_quality(n_clicks, bus_type):
+    def update_quality(n_clicks, contents, bus_type, filename):
+        """Обновление качества с учётом загруженных файлов и добавленных образцов"""
+        
+        ctx = dash.callback_context
+        trigger_id = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
+        
+        # Обработка загрузки CSV-файла
+        if "upload-quality-data" in trigger_id and contents:
+            try:
+                # Декодируем содержимое файла
+                content_type, content_string = contents.split(',')
+                decoded = base64.b64decode(content_string)
+                df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+                
+                # Преобразуем DataFrame в список словарей
+                new_buses = df.to_dict('records')
+                
+                # Добавляем в соответствующую категорию
+                user_buses[bus_type].extend(new_buses)
+                
+                print(f"✅ Загружено {len(new_buses)} образцов из файла {filename}")
+            except Exception as e:
+                print(f"❌ Ошибка загрузки файла: {e}")
+        
         if bus_type is None:
             bus_type = "Междугородние автобусы"
         
-        buses = SAMPLE_BUSES.get(bus_type, [])
+        # Получаем данные для выбранного типа (встроенные + пользовательские)
+        buses = SAMPLE_BUSES.get(bus_type, []) + user_buses.get(bus_type, [])
         characteristics = QualityEvaluator.CHARACTERISTICS.get(bus_type, {})
         etalon = characteristics.get("etalon", {})
         stimulators = characteristics.get("stimulators", [])
         destimulators = characteristics.get("destimulators", [])
         labels = characteristics.get("labels", {})
+        
+        if not buses:
+            # Если нет образцов, выводим сообщение
+            empty_fig = go.Figure()
+            empty_fig.update_layout(title="Нет данных для отображения. Добавьте образцы.")
+            return empty_fig, empty_fig, html.Div("Нет образцов для оценки. Добавьте образцы через форму или загрузите CSV-файл.")
         
         results = []
         for bus in buses:
@@ -45,9 +132,12 @@ def register_callbacks(app, forecast_model):
         
         results.sort(key=lambda x: x["quality"], reverse=True)
         
-        # Радиальная диаграмма (все образцы)
+        # ============================================================
+        # РАДИАЛЬНАЯ ДИАГРАММА (ВСЕ ОБРАЗЦЫ)
+        # ============================================================
         radar_fig = go.Figure()
-        colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
+        colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
+                  '#16a085', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50', '#d35400', '#c0392b', '#7f8c8d']
         
         for idx, result in enumerate(results):
             normalized = QualityEvaluator.get_normalized_values(
@@ -77,7 +167,9 @@ def register_callbacks(app, forecast_model):
             legend=dict(x=1.1, y=1.0)
         )
         
-        # Столбчатая диаграмма
+        # ============================================================
+        # СТОЛБЧАТАЯ ДИАГРАММА
+        # ============================================================
         bar_fig = go.Figure()
         bar_fig.add_trace(go.Bar(
             x=[r["name"] for r in results],
@@ -93,12 +185,17 @@ def register_callbacks(app, forecast_model):
             yaxis_range=[0, 120]
         )
         
+        # Формирование текста результатов
         results_text = html.Div([
             html.H5(f"Результаты оценки для: {bus_type}"),
             html.H6("Эталонный образец:"),
             html.P(", ".join([f"{labels.get(k,k)}: {v}" for k,v in etalon.items()])),
             html.H6("Рейтинг образцов:"),
-            html.Ol([html.Li(f"{r['name']}: {r['quality']:.1f}%") for r in results])
+            html.Ol([html.Li(f"{r['name']}: {r['quality']:.1f}%") for r in results]),
+            html.Hr(),
+            html.H6("📌 Примечание:", style={'marginTop': '10px'}),
+            html.P("Зелёным цветом выделен лучший образец.", style={'fontSize': '12px', 'color': '#7f8c8d'}),
+            html.P("Значение 100% соответствует эталону.", style={'fontSize': '12px', 'color': '#7f8c8d'})
         ])
         
         return radar_fig, bar_fig, results_text
@@ -223,8 +320,6 @@ def register_callbacks(app, forecast_model):
     )
     def solve_optimization(n_clicks, s0, s1, s2, d0, d1, d2, d3, d4, cost_data):
         """Решение транспортной задачи"""
-        import time
-        
         if not n_clicks:
             return html.Div("Нажмите 'Оптимизировать' для расчёта оптимального распределения автобусов")
         
