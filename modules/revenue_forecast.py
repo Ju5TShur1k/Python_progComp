@@ -60,7 +60,7 @@ class RevenueForecast:
         return X_train, X_test, y_train, y_test
     
     def train_polynomial(self, degree=2):
-        """Обучение полиномиальной регрессии на ТРЕНИРОВОЧНЫХ данных"""
+        """Обучение полиномиальной регрессии на трен данных"""
         self.degree = degree
         self.is_polynomial = True
         

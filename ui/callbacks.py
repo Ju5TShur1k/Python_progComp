@@ -1,5 +1,5 @@
 """
-Обработчики событий (callbacks)
+Обработчики событий (callbacks) - Железнодорожная тематика
 """
 
 import base64
@@ -14,15 +14,7 @@ import plotly.graph_objs as go
 import plotly.express as px
 
 from modules import QualityEvaluator, TransportOptimizer
-from config import SAMPLE_BUSES
-
-
-# Глобальная переменная для хранения пользовательских образцов
-user_buses = {
-    "Междугородние автобусы": [],
-    "Автобусы малой вместимости": [],
-    "Спецтранспорт (эвакуаторы)": []
-}
+from config import SAMPLE_TRAINS, CHARACTERISTICS, DEPOT_NAMES, ROUTE_NAMES, USER_TRAINS
 
 
 def register_callbacks(app, forecast_model):
@@ -33,46 +25,45 @@ def register_callbacks(app, forecast_model):
     # ============================================================
     
     @app.callback(
-        Output("add-bus-message", "children"),
-        Input("btn-add-bus", "n_clicks"),
-        [State("bus-type-select", "value"),
-         State("new-bus-name", "value"),
-         State("new-bus-speed", "value"),
-         State("new-bus-capacity", "value"),
-         State("new-bus-resource", "value"),
-         State("new-bus-comfort", "value"),
-         State("new-bus-fuel", "value")]
+        Output("add-train-message", "children"),
+        Input("btn-add-train", "n_clicks"),
+        [State("train-type-select", "value"),
+         State("new-train-name", "value"),
+         State("new-train-speed", "value"),
+         State("new-train-resource", "value"),
+         State("new-train-power", "value"),
+         State("new-train-reliability", "value"),
+         State("new-train-comfort", "value"),
+         State("new-train-fuel", "value")]
     )
-    def add_bus_manual(n_clicks, bus_type, name, speed, capacity, resource, comfort, fuel):
-        """Ручное добавление нового образца"""
+    def add_train_manual(n_clicks, train_type, name, speed, resource, power, reliability, comfort, fuel):
+        """Ручное добавление нового образца подвижного состава"""
         if not n_clicks:
             return ""
         
-        # Проверка обязательных полей
         if not name:
             return html.Div("❌ Ошибка: введите название модели", style={'color': 'red'})
         
-        if not all([speed, capacity, resource, comfort, fuel]):
-            return html.Div("❌ Ошибка: заполните все показатели", style={'color': 'red'})
+        if not all([speed, resource, power, reliability, comfort]):
+            return html.Div("❌ Ошибка: заполните все обязательные показатели", style={'color': 'red'})
         
-        # Создаём новый образец
-        new_bus = {
+        new_train = {
             "name": name,
             "max_speed": float(speed),
-            "capacity": float(capacity),
             "resource": float(resource),
+            "traction_power": float(power),
+            "reliability": float(reliability),
             "comfort": float(comfort),
-            "fuel_consumption": float(fuel)
+            "fuel_consumption": float(fuel) if fuel and float(fuel) > 0 else 0
         }
         
-        # Добавляем в соответствующую категорию
-        user_buses[bus_type].append(new_bus)
+        USER_TRAINS[train_type].append(new_train)
         
         return html.Div(f"✅ Образец '{name}' успешно добавлен! Нажмите 'Рассчитать' для обновления графиков.", 
                        style={'color': 'green', 'marginTop': '10px'})
     
     # ============================================================
-    # CALLBACK ДЛЯ ОЦЕНКИ КАЧЕСТВА (С УЧЁТОМ ДОБАВЛЕННЫХ ОБРАЗЦОВ)
+    # CALLBACK ДЛЯ ОЦЕНКИ КАЧЕСТВА
     # ============================================================
     
     @app.callback(
@@ -81,63 +72,51 @@ def register_callbacks(app, forecast_model):
          Output("quality-results-text", "children")],
         [Input("btn-calc-quality", "n_clicks"),
          Input("upload-quality-data", "contents")],
-        [State("bus-type-select", "value"),
+        [State("train-type-select", "value"),
          State("upload-quality-data", "filename")]
     )
-    def update_quality(n_clicks, contents, bus_type, filename):
+    def update_quality(n_clicks, contents, train_type, filename):
         """Обновление качества с учётом загруженных файлов и добавленных образцов"""
         
         ctx = dash.callback_context
         trigger_id = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
         
-        # Обработка загрузки CSV-файла
         if "upload-quality-data" in trigger_id and contents:
             try:
-                # Декодируем содержимое файла
                 content_type, content_string = contents.split(',')
                 decoded = base64.b64decode(content_string)
                 df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-                
-                # Преобразуем DataFrame в список словарей
-                new_buses = df.to_dict('records')
-                
-                # Добавляем в соответствующую категорию
-                user_buses[bus_type].extend(new_buses)
-                
-                print(f"✅ Загружено {len(new_buses)} образцов из файла {filename}")
+                new_trains = df.to_dict('records')
+                USER_TRAINS[train_type].extend(new_trains)
+                print(f"✅ Загружено {len(new_trains)} образцов из файла {filename}")
             except Exception as e:
                 print(f"❌ Ошибка загрузки файла: {e}")
         
-        if bus_type is None:
-            bus_type = "Междугородние автобусы"
+        if train_type is None:
+            train_type = "Пассажирские электровозы"
         
-        # Получаем данные для выбранного типа (встроенные + пользовательские)
-        buses = SAMPLE_BUSES.get(bus_type, []) + user_buses.get(bus_type, [])
-        characteristics = QualityEvaluator.CHARACTERISTICS.get(bus_type, {})
+        trains = SAMPLE_TRAINS.get(train_type, []) + USER_TRAINS.get(train_type, [])
+        characteristics = CHARACTERISTICS.get(train_type, {})
         etalon = characteristics.get("etalon", {})
         stimulators = characteristics.get("stimulators", [])
         destimulators = characteristics.get("destimulators", [])
         labels = characteristics.get("labels", {})
         
-        if not buses:
-            # Если нет образцов, выводим сообщение
+        if not trains:
             empty_fig = go.Figure()
             empty_fig.update_layout(title="Нет данных для отображения. Добавьте образцы.")
             return empty_fig, empty_fig, html.Div("Нет образцов для оценки. Добавьте образцы через форму или загрузите CSV-файл.")
         
         results = []
-        for bus in buses:
-            quality = QualityEvaluator.calculate_quality(bus, etalon, stimulators, destimulators)
-            results.append({"name": bus["name"], "quality": quality, "data": bus})
+        for train in trains:
+            quality = QualityEvaluator.calculate_quality(train, etalon, stimulators, destimulators)
+            results.append({"name": train["name"], "quality": quality, "data": train})
         
         results.sort(key=lambda x: x["quality"], reverse=True)
         
-        # ============================================================
-        # РАДИАЛЬНАЯ ДИАГРАММА (ВСЕ ОБРАЗЦЫ)
-        # ============================================================
+        # Радиальная диаграмма
         radar_fig = go.Figure()
-        colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
-                  '#16a085', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50', '#d35400', '#c0392b', '#7f8c8d']
+        colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
         
         for idx, result in enumerate(results):
             normalized = QualityEvaluator.get_normalized_values(
@@ -162,14 +141,12 @@ def register_callbacks(app, forecast_model):
                     ticktext=['0', '0,5', '1,0 (эталон)', '1,5']
                 )
             ),
-            title=f"Сравнение нормированных показателей ({bus_type})",
+            title=f"Сравнение нормированных показателей ({train_type})",
             showlegend=True,
             legend=dict(x=1.1, y=1.0)
         )
         
-        # ============================================================
-        # СТОЛБЧАТАЯ ДИАГРАММА
-        # ============================================================
+        # Столбчатая диаграмма
         bar_fig = go.Figure()
         bar_fig.add_trace(go.Bar(
             x=[r["name"] for r in results],
@@ -179,29 +156,24 @@ def register_callbacks(app, forecast_model):
             textposition='auto'
         ))
         bar_fig.update_layout(
-            title="Технический уровень автобусов",
-            xaxis_title="Модель автобуса",
+            title="Технический уровень подвижного состава",
+            xaxis_title="Модель",
             yaxis_title="Технический уровень (%)",
             yaxis_range=[0, 120]
         )
         
-        # Формирование текста результатов
         results_text = html.Div([
-            html.H5(f"Результаты оценки для: {bus_type}"),
+            html.H5(f"Результаты оценки для: {train_type}"),
             html.H6("Эталонный образец:"),
             html.P(", ".join([f"{labels.get(k,k)}: {v}" for k,v in etalon.items()])),
             html.H6("Рейтинг образцов:"),
-            html.Ol([html.Li(f"{r['name']}: {r['quality']:.1f}%") for r in results]),
-            html.Hr(),
-            html.H6("📌 Примечание:", style={'marginTop': '10px'}),
-            html.P("Зелёным цветом выделен лучший образец.", style={'fontSize': '12px', 'color': '#7f8c8d'}),
-            html.P("Значение 100% соответствует эталону.", style={'fontSize': '12px', 'color': '#7f8c8d'})
+            html.Ol([html.Li(f"{r['name']}: {r['quality']:.1f}%") for r in results])
         ])
         
         return radar_fig, bar_fig, results_text
     
     # ============================================================
-    # CALLBACK ДЛЯ ИНФОРМАЦИИ О МОДЕЛИ (ПОЛИНОМИАЛЬНАЯ)
+    # CALLBACK ДЛЯ ИНФОРМАЦИИ О МОДЕЛИ
     # ============================================================
     
     @app.callback(
@@ -232,11 +204,10 @@ def register_callbacks(app, forecast_model):
         [State("pred-fuel", "value"),
          State("pred-route", "value"),
          State("pred-holiday", "value"),
-         State("pred-buses", "value"),
+         State("pred-trains", "value"),
          State("pred-weather", "value")]
     )
-    def update_prediction(n_clicks, fuel, route, holiday, buses, weather):
-        """Получение прогноза"""
+    def update_prediction(n_clicks, fuel, route, holiday, trains, weather):
         if not n_clicks:
             return html.Div("Введите значения и нажмите 'Получить прогноз'")
         
@@ -245,11 +216,11 @@ def register_callbacks(app, forecast_model):
                 'fuel_price': fuel or 50,
                 'avg_route_length': route or 25,
                 'is_holiday': holiday or 0,
-                'bus_count': buses or 30,
+                'bus_count': trains or 30,  # bus_count используется как количество поездов
                 'weather_condition': weather or 1
             })
             return html.Div([
-                f"💰 Прогноз дневной выручки: {prediction:.0f} тыс. руб."
+                f"💰 Прогноз выручки: {prediction:.0f} тыс. руб."
             ])
         except Exception as e:
             return html.Div(f"Ошибка: {str(e)}", style={'color': 'red'})
@@ -286,7 +257,7 @@ def register_callbacks(app, forecast_model):
         feature_names = {
             'fuel_price': 'Цена топлива (руб./л)',
             'avg_route_length': 'Протяжённость маршрута (км)',
-            'bus_count': 'Количество автобусов'
+            'bus_count': 'Количество поездов'
         }
         
         fig = go.Figure()
@@ -294,14 +265,14 @@ def register_callbacks(app, forecast_model):
             x=range_values,
             y=predictions,
             mode='lines+markers',
-            name='Дневная выручка',
+            name='Выручка',
             line=dict(color='#3498db', width=3)
         ))
         
         fig.update_layout(
             title=f"Зависимость выручки от {feature_names.get(varying_feature, varying_feature)}",
             xaxis_title=feature_names.get(varying_feature, varying_feature),
-            yaxis_title="Дневная выручка (тыс. руб.)",
+            yaxis_title="Выручка (тыс. руб.)",
             template="plotly_white"
         )
         
@@ -319,22 +290,16 @@ def register_callbacks(app, forecast_model):
         [State("cost-matrix-table", "data")]
     )
     def solve_optimization(n_clicks, s0, s1, s2, d0, d1, d2, d3, d4, cost_data):
-        """Решение транспортной задачи"""
         if not n_clicks:
-            return html.Div("Нажмите 'Оптимизировать' для расчёта оптимального распределения автобусов")
+            return html.Div("Нажмите 'Оптимизировать' для расчёта оптимального распределения локомотивов")
         
-        # Сбор данных о запасах (3 гаража)
         supply = [s0 or 0, s1 or 0, s2 or 0]
-        
-        # Сбор данных о потребностях (5 маршрутов)
         demand = [d0 or 0, d1 or 0, d2 or 0, d3 or 0, d4 or 0]
         
-        # Проверка корректности данных
         if sum(supply) == 0 or sum(demand) == 0:
             return html.Div("⚠️ Ошибка: суммы запасов и потребностей должны быть больше 0", 
                            style={'color': 'red', 'padding': '15px', 'backgroundColor': '#fee', 'borderRadius': '5px'})
         
-        # Формирование матрицы затрат из таблицы
         if cost_data:
             cost_matrix = np.array([[row[f"col_{j}"] for j in range(5)] for row in cost_data])
         else:
@@ -344,24 +309,23 @@ def register_callbacks(app, forecast_model):
                 [650, 600, 550, 600, 650]
             ])
         
-        # Проверка баланса задачи
         total_supply = sum(supply)
         total_demand = sum(demand)
         
         if total_supply != total_demand:
             balance_msg = html.Div([
                 html.P(f"⚠️ Задача НЕ сбалансирована:", style={'color': '#e67e22', 'fontWeight': 'bold'}),
-                html.P(f"   Сумма запасов: {total_supply} автобусов"),
-                html.P(f"   Сумма потребностей: {total_demand} автобусов"),
+                html.P(f"   Сумма запасов: {total_supply} локомотивов"),
+                html.P(f"   Сумма потребностей: {total_demand} локомотивов"),
                 html.P("   Будет добавлен фиктивный поставщик/потребитель с нулевыми затратами.")
             ])
         else:
             balance_msg = html.Div([
-                html.P(f"✅ Задача сбалансирована: {total_supply} автобусов", 
+                html.P(f"✅ Задача сбалансирована: {total_supply} локомотивов", 
                        style={'color': '#27ae60', 'fontWeight': 'bold'})
             ])
         
-        # Сравнение методов оптимизации
+        # Сравнение методов
         methods_to_test = ['highs', 'highs-ds', 'highs-ipm']
         method_names = {
             'highs': 'HiGHS (симплекс)',
@@ -388,10 +352,8 @@ def register_callbacks(app, forecast_model):
             return html.Div("❌ Ошибка: ни один метод не нашёл решение", 
                            style={'color': 'red', 'padding': '15px', 'backgroundColor': '#fee', 'borderRadius': '5px'})
         
-        # Выбираем лучший результат
         best_result = min(successful_results, key=lambda x: x['total_cost'])
         
-        # Находим метод по имени
         selected_method = None
         for method in methods_to_test:
             if method_names[method] == best_result['method_name']:
@@ -431,38 +393,31 @@ def register_callbacks(app, forecast_model):
             )
         ])
         
-        # Названия (с учётом возможного добавления фиктивных)
-        garage_names = ['Гараж G1', 'Гараж G2', 'Гараж G3']
-        route_names = ['Маршрут M1', 'Маршрут M2', 'Маршрут M3', 'Маршрут M4', 'Маршрут M5']
+        depot_names = DEPOT_NAMES + ["Фиктивное депо"] if n_supply > 3 else DEPOT_NAMES[:n_supply]
+        route_names = ROUTE_NAMES + ["Фиктивное направление"] if n_demand > 5 else ROUTE_NAMES[:n_demand]
         
-        if n_supply > 3:
-            garage_names = garage_names + ["Фиктивный гараж"]
-        if n_demand > 5:
-            route_names = route_names + ["Фиктивный маршрут"]
-        
-        # Формирование таблицы результатов
         table_data = []
         for i in range(n_supply):
-            row = {"Гараж": garage_names[i]}
+            row = {"Депо": depot_names[i]}
             for j in range(n_demand):
                 row[route_names[j]] = f"{solution[i][j]:.0f}"
             table_data.append(row)
         
         table = dash_table.DataTable(
-            columns=[{"name": "Гараж / Маршрут", "id": "Гараж"}] + 
+            columns=[{"name": "Депо / Направление", "id": "Депо"}] + 
                     [{"name": r, "id": r} for r in route_names],
             data=table_data,
             style_table={'overflowX': 'auto'},
             style_cell={'textAlign': 'center', 'minWidth': '80px'},
-            style_header={'backgroundColor': '#3498db', 'color': 'white', 'fontWeight': 'bold'}
+            style_header={'backgroundColor': '#e67e22', 'color': 'white', 'fontWeight': 'bold'}
         )
         
         return html.Div([
-            html.H5(f"💰 Минимальные затраты: {total_cost:,.0f} руб./день", 
+            html.H5(f"💰 Минимальные затраты: {total_cost:,.0f} руб./км", 
                    style={'color': '#27ae60', 'fontSize': '18px'}),
             balance_msg,
             comparison_table,
-            html.H6("Оптимальное распределение автобусов:", style={'marginTop': '15px'}),
+            html.H6("Оптимальное распределение локомотивов:", style={'marginTop': '15px'}),
             table
         ])
     
@@ -476,7 +431,6 @@ def register_callbacks(app, forecast_model):
         [State("cost-matrix-table", "data")]
     )
     def update_heatmap(n_clicks, cost_data):
-        """Тепловая карта матрицы затрат"""
         if cost_data and len(cost_data) > 0:
             try:
                 cost_matrix = np.array([[row[f"col_{j}"] for j in range(5)] for row in cost_data])
@@ -498,15 +452,15 @@ def register_callbacks(app, forecast_model):
             text_auto=True,
             aspect="auto",
             color_continuous_scale='RdYlGn_r',
-            labels=dict(x="Маршрут", y="Гараж", color="Затраты (руб.)"),
-            x=['M1', 'M2', 'M3', 'M4', 'M5'],
-            y=['Гараж G1', 'Гараж G2', 'Гараж G3']
+            labels=dict(x="Направление", y="Депо", color="Затраты (руб./км)"),
+            x=ROUTE_NAMES,
+            y=DEPOT_NAMES
         )
         
         fig.update_layout(
-            title="Тепловая карта матрицы затрат (руб./автобус в день)",
-            xaxis_title="Маршрут",
-            yaxis_title="Гараж",
+            title="Тепловая карта матрицы затрат (руб./км)",
+            xaxis_title="Направление",
+            yaxis_title="Депо",
             width=600,
             height=400
         )

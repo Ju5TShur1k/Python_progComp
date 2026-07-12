@@ -1,6 +1,5 @@
 """
-Информационно-аналитическая система для Автобусного парка
-Использует полиномиальную регрессию (степень 2) для прогнозирования
+Информационно-аналитическая система для Железнодорожного перевозчика
 """
 
 import warnings
@@ -20,15 +19,15 @@ print("🔄 Загрузка данных с GitHub...")
 df_bus = DataLoader.load_bus_data(GITHUB_CSV_URL)
 print(f"✅ Данные загружены: {len(df_bus)} записей")
 
-# Модель прогнозирования (полиномиальная, степень 2)
+# Модель прогнозирования (полиномиальная)
 print("\n" + "=" * 50)
 print("ОБУЧЕНИЕ ПОЛИНОМИАЛЬНОЙ МОДЕЛИ (степень 2)")
 print("=" * 50)
-forecast_model = RevenueForecast(df_bus)  # автоматически обучает полиномиальную модель
+forecast_model = RevenueForecast(df_bus)
 print("=" * 50 + "\n")
 
 # Приложение
-app = dash.Dash(__name__, title="ИАС Автобусный парк")
+app = dash.Dash(__name__, title="ИАС Железнодорожный перевозчик")
 app.config.suppress_callback_exceptions = True
 
 app.layout = get_layout()

@@ -1,11 +1,11 @@
 """
-Вёрстка интерфейса (layout)
+Вёрстка интерфейса (Железнодорожная тематика)
 """
 
 from dash import dcc, html, dash_table
 from config import (
     TAB_STYLE, TAB_SELECTED_STYLE, APP_LAYOUT_STYLE, CARD_STYLE,
-    BUTTON_STYLES, COST_MATRIX, BUS_NAMES, ROUTE_NAMES, 
+    BUTTON_STYLES, COST_MATRIX, DEPOT_NAMES, ROUTE_NAMES, 
     SUPPLY, DEMAND
 )
 
@@ -13,17 +13,17 @@ from config import (
 def get_layout():
     """Главный layout приложения"""
     return html.Div([
-        html.H1("🚍 Информационно-аналитическая система", 
+        html.H1("🚆 Информационно-аналитическая система", 
                 style={'textAlign': 'center', 'color': '#2c3e50', 'padding': '20px'}),
-        html.H3("Автобусный парк — управление качеством, прогнозирование выручки и оптимизация",
+        html.H3("Железнодорожный перевозчик — управление качеством подвижного состава, прогнозирование выручки и оптимизация",
                 style={'textAlign': 'center', 'color': '#7f8c8d', 'marginBottom': '30px'}),
         
         dcc.Tabs(id="main-tabs", value="tab-quality", children=[
-            dcc.Tab(label="📊 Оценка технического уровня", value="tab-quality",
+            dcc.Tab(label="🚂 Оценка технического уровня", value="tab-quality",
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label="📈 Прогноз дневной выручки", value="tab-forecast",
+            dcc.Tab(label="📈 Прогноз выручки", value="tab-forecast",
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label="🚌 Оптимизация перевозок", value="tab-optimization",
+            dcc.Tab(label="🛤️ Оптимизация перевозок", value="tab-optimization",
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ]),
         
@@ -32,26 +32,24 @@ def get_layout():
 
 
 def render_quality_tab():
-    """Вкладка оценки качества с возможностью добавления образцов"""
+    """Вкладка оценки качества подвижного состава"""
     return html.Div([
         html.Div([
             html.Div([
-                html.H4("Выбор типа автобусов", style={'color': '#2c3e50'}),
+                html.H4("Выбор типа подвижного состава", style={'color': '#2c3e50'}),
                 dcc.Dropdown(
-                    id="bus-type-select",
+                    id="train-type-select",
                     options=[
-                        {"label": "🚌 Междугородние автобусы", "value": "Междугородние автобусы"},
-                        {"label": "🚐 Автобусы малой вместимости", "value": "Автобусы малой вместимости"},
-                        {"label": "🛻 Спецтранспорт (эвакуаторы)", "value": "Спецтранспорт (эвакуаторы)"}
+                        {"label": "🚂 Пассажирские электровозы", "value": "Пассажирские электровозы"},
+                        {"label": "🛤️ Грузовые тепловозы", "value": "Грузовые тепловозы"},
+                        {"label": "🚄 Электропоезда (пригородные)", "value": "Электропоезда (пригородные)"}
                     ],
-                    value="Междугородние автобусы",
+                    value="Пассажирские электровозы",
                     style={'marginBottom': '20px'}
                 ),
                 
-                # ============================================================
-                # БЛОК ДОБАВЛЕНИЯ ОБРАЗЦА ЧЕРЕЗ CSV
-                # ============================================================
-                html.H4("Загрузка из CSV-файла", style={'marginTop': '20px', 'color': '#2c3e50'}),
+                # Блок добавления образца
+                html.H4("Загрузка данных", style={'marginTop': '20px', 'color': '#2c3e50'}),
                 dcc.Upload(
                     id="upload-quality-data",
                     children=html.Div([
@@ -66,41 +64,35 @@ def render_quality_tab():
                     multiple=False
                 ),
                 
-                # ============================================================
-                # БЛОК РУЧНОГО ДОБАВЛЕНИЯ ОБРАЗЦА
-                # ============================================================
                 html.H4("Ручное добавление образца", style={'marginTop': '20px', 'color': '#2c3e50'}),
                 html.Div([
                     html.Label("Название модели:"),
-                    dcc.Input(id="new-bus-name", type="text", placeholder="Введите название модели",
+                    dcc.Input(id="new-train-name", type="text", placeholder="Введите название модели",
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    
                     html.Label("Макс. скорость (км/ч):"),
-                    dcc.Input(id="new-bus-speed", type="number", placeholder="120",
+                    dcc.Input(id="new-train-speed", type="number", placeholder="200",
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    
-                    html.Label("Вместимость (чел):"),
-                    dcc.Input(id="new-bus-capacity", type="number", placeholder="55",
-                             style={'width': '100%', 'marginBottom': '10px'}),
-                    
                     html.Label("Ресурс (тыс. км):"),
-                    dcc.Input(id="new-bus-resource", type="number", placeholder="800",
+                    dcc.Input(id="new-train-resource", type="number", placeholder="1200",
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    
+                    html.Label("Мощность (кВт):"),
+                    dcc.Input(id="new-train-power", type="number", placeholder="8000",
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    html.Label("Надёжность (баллы):"),
+                    dcc.Input(id="new-train-reliability", type="number", placeholder="9.5", step=0.1,
+                             style={'width': '100%', 'marginBottom': '10px'}),
                     html.Label("Комфорт (баллы):"),
-                    dcc.Input(id="new-bus-comfort", type="number", placeholder="10", step=0.5,
+                    dcc.Input(id="new-train-comfort", type="number", placeholder="9.0", step=0.1,
+                             style={'width': '100%', 'marginBottom': '10px'}),
+                    html.Label("Расход топлива (л/100км) [если есть]:"),
+                    dcc.Input(id="new-train-fuel", type="number", placeholder="0",
                              style={'width': '100%', 'marginBottom': '10px'}),
                     
-                    html.Label("Расход топлива (л/100км):"),
-                    dcc.Input(id="new-bus-fuel", type="number", placeholder="22",
-                             style={'width': '100%', 'marginBottom': '10px'}),
-                    
-                    html.Button("➕ Добавить образец", id="btn-add-bus",
+                    html.Button("➕ Добавить образец", id="btn-add-train",
                                style={'margin': '10px 0', 'padding': '10px 20px',
                                       'backgroundColor': '#9b59b6', 'color': 'white', 'border': 'none',
                                       'borderRadius': '5px', 'cursor': 'pointer'}),
-                    
-                    html.Div(id="add-bus-message", style={'marginTop': '10px', 'color': 'green'})
+                    html.Div(id="add-train-message", style={'marginTop': '10px', 'color': 'green'})
                 ], style={'padding': '15px', 'backgroundColor': '#f9e79f', 'borderRadius': '10px'}),
                 
                 html.Hr(),
@@ -127,8 +119,9 @@ def render_quality_tab():
         ], className="row"),
     ])
 
+
 def render_forecast_tab(df_bus):
-    """Вкладка прогнозирования (автоматический выбор модели)"""
+    """Вкладка прогнозирования выручки"""
     return html.Div([
         html.Div([
             html.Div([
@@ -141,14 +134,14 @@ def render_forecast_tab(df_bus):
                     html.Label("💰 Цена топлива (руб./л):"),
                     dcc.Input(id="pred-fuel", type="number", value=50, step=0.5,
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    html.Label("🛣️ Средняя протяжённость маршрута (км):"),
+                    html.Label("🛤️ Протяжённость маршрута (км):"),
                     dcc.Input(id="pred-route", type="number", value=25, step=1,
                              style={'width': '100%', 'marginBottom': '10px'}),
                     html.Label("📅 Праздник/выходной (1=да, 0=нет):"),
                     dcc.Input(id="pred-holiday", type="number", value=0, step=1,
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    html.Label("🚌 Количество автобусов:"),
-                    dcc.Input(id="pred-buses", type="number", value=30, step=1,
+                    html.Label("🚂 Количество поездов:"),
+                    dcc.Input(id="pred-trains", type="number", value=30, step=1,
                              style={'width': '100%', 'marginBottom': '10px'}),
                     html.Label("☁️ Погода (1=хорошая, 0=плохая):"),
                     dcc.Input(id="pred-weather", type="number", value=1, step=1,
@@ -168,7 +161,7 @@ def render_forecast_tab(df_bus):
                     options=[
                         {"label": "Цена топлива", "value": "fuel_price"},
                         {"label": "Протяжённость маршрута", "value": "avg_route_length"},
-                        {"label": "Количество автобусов", "value": "bus_count"}
+                        {"label": "Количество поездов", "value": "bus_count"}
                     ],
                     value="fuel_price",
                     style={'marginBottom': '10px'}
@@ -203,29 +196,16 @@ def render_forecast_tab(df_bus):
 
 
 def render_optimization_tab():
-    """Вкладка оптимизации для автобусного парка (вариант №3 из ПЗ №7)"""
-    
-    # Данные для транспортной задачи (вариант №3: Автобусный парк)
-    # Гаражи: G1, G2, G3
-    # Маршруты: M1, M2, M3, M4, M5
-    COST_MATRIX = [
-        [500, 550, 600, 650, 700],  # G1
-        [580, 520, 570, 620, 670],  # G2
-        [650, 600, 550, 600, 650]   # G3
-    ]
-    SUPPLY = [30, 25, 20]           # Запасы автобусов в гаражах
-    DEMAND = [15, 12, 18, 14, 16]   # Потребность в автобусах на маршрутах
-    GARAGE_NAMES = ['Гараж G1', 'Гараж G2', 'Гараж G3']
-    ROUTE_NAMES = ['Маршрут M1', 'Маршрут M2', 'Маршрут M3', 'Маршрут M4', 'Маршрут M5']
+    """Вкладка оптимизации распределения локомотивов по направлениям"""
     
     return html.Div([
         html.Div([
             html.Div([
                 html.H4("Параметры транспортной задачи", style={'color': '#2c3e50'}),
-                html.P("Распределение автобусов из гаражей по маршрутам", 
+                html.P("Распределение локомотивов из депо по направлениям", 
                        style={'color': '#7f8c8d', 'marginBottom': '15px'}),
                 
-                html.H5("Матрица затрат (руб./автобус в день)", style={'marginTop': '10px'}),
+                html.H5("Матрица затрат (руб./км)", style={'marginTop': '10px'}),
                 dash_table.DataTable(
                     id="cost-matrix-table",
                     columns=[{"name": r, "id": f"col_{i}"} for i, r in enumerate(ROUTE_NAMES)],
@@ -234,19 +214,19 @@ def render_optimization_tab():
                     editable=True,
                     style_table={'overflowX': 'auto'},
                     style_cell={'textAlign': 'center', 'minWidth': '100px'},
-                    style_header={'backgroundColor': '#3498db', 'color': 'white'}
+                    style_header={'backgroundColor': '#e67e22', 'color': 'white'}
                 ),
                 
-                html.H5("Запасы автобусов в гаражах (ед.)", style={'marginTop': '20px'}),
+                html.H5("Запасы локомотивов в депо (ед.)", style={'marginTop': '20px'}),
                 html.Div([
                     html.Div([
-                        html.Label(f"{GARAGE_NAMES[i]}:"), 
+                        html.Label(f"{DEPOT_NAMES[i]}:"), 
                         dcc.Input(id=f"supply_{i}", type="number", value=SUPPLY[i],
                                  style={'width': '100px', 'marginLeft': '10px', 'marginBottom': '10px'})
                     ]) for i in range(3)
                 ]),
                 
-                html.H5("Потребность маршрутов в автобусах (ед.)", style={'marginTop': '20px'}),
+                html.H5("Потребность направлений в локомотивах (ед.)", style={'marginTop': '20px'}),
                 html.Div([
                     html.Div([
                         html.Label(f"{ROUTE_NAMES[i]}:"), 
@@ -257,7 +237,7 @@ def render_optimization_tab():
                 
                 html.Button("🚀 Оптимизировать распределение", id="btn-optimize",
                            style={'margin': '20px 0', 'padding': '12px 25px',
-                                  'backgroundColor': '#27ae60', 'color': 'white', 'border': 'none',
+                                  'backgroundColor': '#e67e22', 'color': 'white', 'border': 'none',
                                   'borderRadius': '5px', 'cursor': 'pointer', 'fontSize': '16px'}),
             ], className="six columns", style=CARD_STYLE),
             
@@ -267,9 +247,9 @@ def render_optimization_tab():
             ], className="six columns", style=CARD_STYLE),
         ], className="row"),
         
-        # Тепловая карта (добавляем под результатами)
+        # Тепловая карта
         html.Div([
-            html.H4("Тепловая карта матрицы затрат", style={'textAlign': 'center', 'marginTop': '20px'}),
+            html.H4("🔥 Тепловая карта матрицы затрат", style={'textAlign': 'center', 'marginTop': '20px'}),
             dcc.Graph(id="cost-heatmap")
         ], style=CARD_STYLE),
     ])
