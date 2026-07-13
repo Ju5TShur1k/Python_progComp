@@ -2,8 +2,11 @@
 Конфигурационный файл для ИАС Железнодорожного перевозчика
 """
 
-# Ссылка на raw-файл Bus.csv в GitHub (данные для прогноза цен)
-GITHUB_CSV_URL = "https://raw.githubusercontent.com/Ju5TShur1k/Python_Kursovaya/refs/heads/main/Bus.csv"
+# ============================================================
+# ССЫЛКА НА ДАННЫЕ
+# ============================================================
+
+GITHUB_CSV_URL = "https://raw.githubusercontent.com/Ju5TShur1k/Python_progComp/refs/heads/main/Passenger.csv"
 
 # ============================================================
 # ДАННЫЕ ДЛЯ ТРАНСПОРТНОЙ ЗАДАЧИ (ЖЕЛЕЗНОДОРОЖНАЯ ТЕМАТИКА)
@@ -120,7 +123,7 @@ TAB_STYLE = {
 TAB_SELECTED_STYLE = {
     'borderTop': '1px solid #d6d6d6',
     'borderBottom': '1px solid #d6d6d6',
-    'backgroundColor': '#e67e22',  # Оранжевый цвет под ЖД тематику
+    'backgroundColor': '#e67e22',
     'color': 'white',
     'padding': '12px',
     'fontWeight': 'bold'
@@ -170,7 +173,7 @@ BUTTON_STYLES = {
 }
 
 # ============================================================
-# ПОЛЬЗОВАТЕЛЬСКИЕ ОБРАЗЦЫ (ЖЕЛЕЗНОДОРОЖНАЯ ТЕМАТИКА)
+# ПОЛЬЗОВАТЕЛЬСКИЕ ОБРАЗЦЫ
 # ============================================================
 
 USER_TRAINS = {

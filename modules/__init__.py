@@ -3,7 +3,7 @@
 """
 
 from .quality_evaluator import QualityEvaluator
-from .revenue_forecast import RevenueForecast
+from .passenger_forecast import PassengerForecast
 from .transport_optimizer import TransportOptimizer
 
-__all__ = ['QualityEvaluator', 'RevenueForecast', 'TransportOptimizer']
+__all__ = ['QualityEvaluator', 'PassengerForecast', 'TransportOptimizer']

@@ -120,31 +120,28 @@ def render_quality_tab():
     ])
 
 
-def render_forecast_tab(df_bus):
-    """Вкладка прогнозирования выручки"""
+def render_forecast_tab(df):
+    """Вкладка прогнозирования пассажиропотока"""
     return html.Div([
         html.Div([
             html.Div([
-                html.H4("Информация о модели", style={'color': '#2c3e50'}),
-                html.Div(id="model-info", style={'marginBottom': '20px', 'padding': '15px',
-                                                  'backgroundColor': '#d5f5e3', 'borderRadius': '5px'}),
                 
-                html.H4("Ручной прогноз выручки", style={'marginTop': '20px', 'color': '#2c3e50'}),
+                html.H4("Ручной прогноз пассажиропотока", style={'marginTop': '20px', 'color': '#2c3e50'}),
                 html.Div([
-                    html.Label("💰 Цена топлива (руб./л):"),
-                    dcc.Input(id="pred-fuel", type="number", value=50, step=0.5,
+                    html.Label("🎫 Цена билета (руб.):"),
+                    dcc.Input(id="pred-ticket", type="number", value=850, step=10,
                              style={'width': '100%', 'marginBottom': '10px'}),
                     html.Label("🛤️ Протяжённость маршрута (км):"),
-                    dcc.Input(id="pred-route", type="number", value=25, step=1,
+                    dcc.Input(id="pred-route", type="number", value=200, step=10,
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    html.Label("📅 Праздник/выходной (1=да, 0=нет):"),
-                    dcc.Input(id="pred-holiday", type="number", value=0, step=1,
+                    html.Label("📅 Выходной/праздник (1=да, 0=нет):"),
+                    dcc.Input(id="pred-weekend", type="number", value=0, step=1,
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    html.Label("🚂 Количество поездов:"),
-                    dcc.Input(id="pred-trains", type="number", value=30, step=1,
+                    html.Label("🚆 Количество поездов в сутки:"),
+                    dcc.Input(id="pred-trains", type="number", value=15, step=1,
                              style={'width': '100%', 'marginBottom': '10px'}),
-                    html.Label("☁️ Погода (1=хорошая, 0=плохая):"),
-                    dcc.Input(id="pred-weather", type="number", value=1, step=1,
+                    html.Label("🌤️ Сезон (1-зима, 2-весна, 3-лето, 4-осень):"),
+                    dcc.Input(id="pred-season", type="number", value=1, step=1,
                              style={'width': '100%', 'marginBottom': '10px'}),
                     html.Button("📈 Получить прогноз", id="btn-predict",
                                style=BUTTON_STYLES['success']),
@@ -154,23 +151,23 @@ def render_forecast_tab(df_bus):
             ], className="six columns", style=CARD_STYLE),
             
             html.Div([
-                html.H4("Анализ зависимости выручки", style={'color': '#2c3e50'}),
+                html.H4("Анализ зависимости пассажиропотока", style={'color': '#2c3e50'}),
                 html.Label("Выберите признак для анализа:"),
                 dcc.Dropdown(
                     id="varying-feature",
                     options=[
-                        {"label": "Цена топлива", "value": "fuel_price"},
-                        {"label": "Протяжённость маршрута", "value": "avg_route_length"},
-                        {"label": "Количество поездов", "value": "bus_count"}
+                        {"label": "Цена билета", "value": "ticket_price"},
+                        {"label": "Протяжённость маршрута", "value": "route_length"},
+                        {"label": "Количество поездов", "value": "trains_per_day"}
                     ],
-                    value="fuel_price",
+                    value="ticket_price",
                     style={'marginBottom': '10px'}
                 ),
                 html.Label("Диапазон значений:"),
                 html.Div([
-                    dcc.Input(id="range-start", type="number", value=40,
+                    dcc.Input(id="range-start", type="number", value=700,
                              style={'width': '45%', 'marginRight': '5%'}),
-                    dcc.Input(id="range-end", type="number", value=60,
+                    dcc.Input(id="range-end", type="number", value=1000,
                              style={'width': '45%'})
                 ], style={'marginBottom': '10px'}),
                 html.Button("📊 Построить график зависимости", id="btn-plot-dependence",
@@ -185,8 +182,8 @@ def render_forecast_tab(df_bus):
             html.H4("📋 Исходные данные (первые 20 записей)", style={'marginLeft': '10px'}),
             dash_table.DataTable(
                 id="forecast-data-table",
-                columns=[{"name": i, "id": i} for i in df_bus.columns],
-                data=df_bus.head(20).to_dict('records'),
+                columns=[{"name": i, "id": i} for i in df.columns],
+                data=df.head(20).to_dict('records'),
                 style_table={'overflowX': 'auto'},
                 style_cell={'textAlign': 'center'},
                 page_size=10

@@ -172,55 +172,34 @@ def register_callbacks(app, forecast_model):
         
         return radar_fig, bar_fig, results_text
     
-    # ============================================================
-    # CALLBACK ДЛЯ ИНФОРМАЦИИ О МОДЕЛИ
-    # ============================================================
-    
-    @app.callback(
-        Output("model-info", "children"),
-        Input("btn-predict", "n_clicks"),
-        prevent_initial_call=False
-    )
-    def display_model_info(n_clicks):
-        """Отображение информации о полиномиальной модели"""
-        return html.Div([
-            html.H5("📈 Полиномиальная регрессия (степень 2)", style={'marginBottom': '10px', 'color': '#2980b9'}),
-            html.P("🔍 Модель учитывает нелинейные зависимости и взаимодействия признаков", 
-                   style={'fontSize': '14px'}),
-            html.P(f"📊 R² (качество модели): **{forecast_model.r2:.4f}**", style={'marginBottom': '5px'}),
-            html.P(f"📉 MAE (средняя ошибка): **{forecast_model.mae:.2f}** тыс. руб.", style={'marginBottom': '5px'}),
-            html.P(f"🔧 Степень полинома: **{forecast_model.degree}**", style={'marginBottom': '5px'}),
-            html.P("📐 Модель учитывает: линейные эффекты, квадратичные эффекты и взаимодействия признаков",
-                   style={'fontSize': '12px', 'color': '#7f8c8d', 'marginTop': '10px'})
-        ])
     
     # ============================================================
     # CALLBACK ДЛЯ ПРОГНОЗА
     # ============================================================
     
     @app.callback(
-        Output("prediction-result", "children"),
-        Input("btn-predict", "n_clicks"),
-        [State("pred-fuel", "value"),
-         State("pred-route", "value"),
-         State("pred-holiday", "value"),
-         State("pred-trains", "value"),
-         State("pred-weather", "value")]
+    Output("prediction-result", "children"),
+    Input("btn-predict", "n_clicks"),
+    [State("pred-ticket", "value"),
+     State("pred-route", "value"),
+     State("pred-weekend", "value"),
+     State("pred-trains", "value"),
+     State("pred-season", "value")]
     )
-    def update_prediction(n_clicks, fuel, route, holiday, trains, weather):
+    def update_prediction(n_clicks, ticket, route, weekend, trains, season):
         if not n_clicks:
             return html.Div("Введите значения и нажмите 'Получить прогноз'")
         
         try:
             prediction = forecast_model.predict({
-                'fuel_price': fuel or 50,
-                'avg_route_length': route or 25,
-                'is_holiday': holiday or 0,
-                'bus_count': trains or 30,  # bus_count используется как количество поездов
-                'weather_condition': weather or 1
+                'ticket_price': ticket or 850,
+                'route_length': route or 200,
+                'is_weekend': weekend or 0,
+                'trains_per_day': trains or 15,
+                'season': season or 1
             })
             return html.Div([
-                f"💰 Прогноз выручки: {prediction:.0f} тыс. руб."
+                f"🚆 Прогноз пассажиропотока: {prediction:.0f} тыс. чел."
             ])
         except Exception as e:
             return html.Div(f"Ошибка: {str(e)}", style={'color': 'red'})
