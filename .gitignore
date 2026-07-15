@@ -1,0 +1,36 @@
+# Кеш моделей SentenceTransformer (ваши огромные файлы)
+embeddings_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Логи и временные файлы
+*.log
+*.tmp
+*.temp
